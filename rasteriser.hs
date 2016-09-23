@@ -1,33 +1,8 @@
-import qualified Data.Vector as V
 
-data Point    = Point{getX :: Double, getY :: Double, getZ :: Double} deriving(Show, Eq)
-data Triangle = Triangle{getPoint0 :: Point, getPoint1 :: Point, getPoint2 :: Point} deriving(Show, Eq)
- 
 type Colour   = Double
-data Pixel    = Pixel{getXp :: Double, getYp :: Double, getColour :: Colour} deriving(Show, Eq)
-type Vec      = Point
-type Position = Point
-
---Projection from the 3D-Space on the Canvas
-projectTriangle :: Triangle -> Triangle
-projectTriangle triangle = Triangle{ getPoint0 = projectPoint' . getPoint0 $ triangle
-									,getPoint1 = projectPoint' . getPoint1 $ triangle
-									,getPoint2 = projectPoint' . getPoint2 $ triangle
-								   }
- 
-projectPoint' :: Point -> Point
-projectPoint' point = projectPoint 3.4 point
 
 
-projectPoint :: Double -> Point -> Point
-projectPoint near p = let z = getZ p
-					  in Point{ getX = near * getX p / z
-							   ,getY = near * getY p / z
-							   ,getZ = z
-							}
-
-projectTriangles :: [Triangle]->[Triangle]
-projectTriangles triangles = map projectTriangle triangles
+interpolate :: ZBuffer -> Triangle -> ([Pixels],ZBuffer)
 
 edgeFunction :: Vec-> Vec-> Point-> Double
 edgeFunction vec1 vec2 p = (getX p - getX vec1) * (getY vec2 - getY vec1)  - (getY p - getY vec1) * (getX vec2 - getX vec1)
