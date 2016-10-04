@@ -14,53 +14,73 @@ data Triangle = Triangle{ getVertex1 :: !Vertex
                         , getVertex2 :: !Vertex
                         , getVertex3 :: !Vertex
                         } deriving(Show, Eq)
- 
 
 type Pixel    = Vertex
 type Vec3     = Point
-data Vec2     = Vec2{getVec2X :: Double, getVec2Y :: Double}
+
 type Position = Point
 
+defaultPoint :: Point
+defaultPoint = Point{ getX = 1.0
+                    , getY = 1.0
+                    , getZ = 1.0
+                    }
+--Takes the projectors px and py which will be applied to the Points of the Vertizes of the provided 
+--Triangles
+projectTriangle :: (Double->Double->Double->Double)->(Double->Double->Double->Double)
+                    ->(Double->Double->Double->Double)-> Triangle ->Triangle
+projectTriangle px py pz triangle = Triangle{getVertex1 = (projectVertex px py pz) . getVertex1 $ triangle
+                                            ,getVertex2 = (projectVertex px py pz) . getVertex2 $ triangle
+                                            ,getVertex3 = (projectVertex px py pz) . getVertex3 $ triangle
+                                            }
+  where
+    projectVertex ::  (Double->Double->Double->Double)->(Double->Double->Double->Double)
+                      -> (Double->Double->Double->Double)->Vertex ->Vertex
+    projectVertex px py pz vertex = let point = getPoint $ vertex
+                                        x     = getX point
+                                        y     = getY point
+                                        z     = getZ point
+                                    in  Vertex{getPoint = Point{ getX = px (x) (y) (z)
+                                                                ,getY = py (x) (y) (z)
+                                                                ,getZ = pz (x) (y) (z)
+                                                                }
+                                                ,getColour = getColour $ vertex               
+                                                }
 
- 
-projectPoint' :: Point -> Point
-projectPoint' point = projectPoint 3.4 point
 
-
-projectPoint :: Double -> Point -> Point
-projectPoint near p = let z = getZ p
-                      in Point{ getX = near * getX p / z
-                              , getY = near * getY p / z
-                              , getZ = z
-                              }
-
-projectTriangles :: [Triangle] -> [Triangle]
-projectTriangles triangles = map projectTriangle triangles
+projectTrianglesToCameraSpace :: [Triangle] -> [Triangle]
+projectTrianglesToCameraSpace triangles = map projectTriangleToCameraSpace triangles
   where
     --Projection from the 3D-Space on the Canvas
-    projectTriangle :: Triangle -> Triangle
-    projectTriangle triangle = Triangle{ getVertex1 = projectPoint' . getVertex1 $ triangle
-                                        ,getVertex2 = projectPoint' . getVertex2 $ triangle
-                                        ,getVertex3 = projectPoint' . getVertex3 $ triangle
-                                        }
+    projectTriangleToCameraSpace :: Triangle -> Triangle
+    projectTriangleToCameraSpace triangle = projectTriangle px py pz triangle
+    px x _ z = 3.4 * x / z 
+    py _ y z = 3.4 * y / z
+    pz _ _ z = - z
 
-cutOfZ :: Vec3->Vec2
-cutOfZ v = Vec2{getVec2X = getX v, getVec2Y = getY v}
+projectTrianglesToNDCSpace ::  Double->Double ->[Triangle]->[Triangle]
+projectTrianglesToNDCSpace width hight triangles = map (projectTriangleToNDCSpace width hight) triangles 
+  where
+    --Projection from the Canvas on the NDC-Space
+    projectTriangleToNDCSpace :: Double->Double->Triangle-> Triangle
+    projectTriangleToNDCSpace width hight triangle = let px x _ z = (x + width/2) / width
+                                                         py _ y z = (y + hight/2)/hight
+                                                         pz _ _ z = z
+                                                     in projectTriangle px py pz triangle
 
---perspectiveProject :: Vec -> Point -> Vec
-{-
-pixelPainter :: Pixel-> Vec-> Vec-> Vec->Point->Point->Point-> [Pixel]
-pixelPainter p v0 v1 v2 p0 p1 p2 = 
 
-getEdge :: Point ->Point-> Vec
-getEdge p0 p1 = Point{getX = getX p1 - getX p0, getY = getY p1 - getY p0, getZ = z1 - z0}
-map projectTriangle (x:xs)
-rasteriser :: [Triangle]->[Pixel]-> Position ->[Pixel]
-rasteriser (x:xs) pixel pos = 
+--projectTrianglesToRasterSpace :: [Triangle]->[Pixel]
 
-                            let v0 = perspectiveProject $ getEdge ((getPoint0 x) (getPoint1 x)) pos 
-                                  v1 = perspectiveProject $ getEdge ((getPoint1 x) (getPoint2 x)) pos
-                                  v2 = perspectiveProject $ getEdge ((getPoint2 x) (getPoint0 x)) pos
-                               in rasteriser $ xs pixelPainter ( pixel v0 v1 v2 ) pos
--}                              
- 
+--I should abstract these Projections a bit away first order function for the win!!!
+-- projector :: Triangle -> (Double -> Double)->(Double -> Double)->(Double -> Double)->Triangle 
+--vielleicht mehr als eine?
+
+projectTrianglesToRasterSpace :: Double->Double-> [Triangle]-> [Triangle]
+projectTrianglesToRasterSpace imageWidth imageHeight triangles = map (projectTriangleToRasterSpace imageWidth imageHeight) triangles
+  where 
+    projectTriangleToRasterSpace :: Double->Double->Triangle->Triangle
+    projectTriangleToRasterSpace imageWidth imageHeight triangle = let px x _ _ = (x + 1 ) / (2 * imageWidth)
+                                                                      --in rasterspace y is down so invert direction
+                                                                       py _ y _ = (1 - y)/(imageHeight * 2)
+                                                                       pz _ _ z = - z
+                                                                   in projectTriangle px py pz triangle
